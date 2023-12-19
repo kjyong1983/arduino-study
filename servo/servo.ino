@@ -1,10 +1,9 @@
 #include <Servo.h>
-#include "pitches.h"
 
 int ledPin = 3;
 int servoPin = 9;
 int analogPinA0 = A0;
-int bzPin = 6;
+// int bzPin = 6;
 
 Servo servo;
 
@@ -17,7 +16,7 @@ void setup() {
 
 void loop() {
 
-  int analogInput = analogRead(analogPinA0);
+  // int analogInput = analogRead(analogPinA0);
 
   // {
   //   int analogInput = analogRead(analogPinA0);
@@ -39,6 +38,10 @@ void loop() {
 
   // 아날로그 입력을 받아서 밝기와 모터를 조절
   {
+
+
+
+    
     int analogVal = analogRead(analogPinA0);
     int deg = map(analogVal, 0, 1023, 0, 180);
     servo.write(deg);

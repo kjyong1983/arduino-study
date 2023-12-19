@@ -2,7 +2,7 @@ char data;
 int ledPin = 13;
 
 void setup() {
-  // put your setup code here, to run once:
+  put your setup code here, to run once:
   Serial.begin(9600);
   pinMode(ledPin, OUTPUT);
 }
