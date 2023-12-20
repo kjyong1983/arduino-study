@@ -1,4 +1,4 @@
-int soundSensorPin = A1;
+int soundSensorPin = A3;
 int threshold = 500;
 
 void setup() {
