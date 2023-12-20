@@ -48,6 +48,8 @@ int totalTime = 0;
 int deltaTime = 0;
 int prevTotalTime = 0;
 
+long lastSoundTimeStamp = 0;
+int changeModeTimeIntervalMills = 1000;
 // TODO: 1초 안에 소리 두 번 받으면 모드 변환(시계 - 온도)
 
 bool debug = false;
@@ -196,6 +198,21 @@ void loop() {
       // myDisplay.displayText(buffer, PA_CENTER, 25, 1000, PA_PRINT);
       myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
       displayOn = true;
+
+      long currentTime =  millis();
+      if (lastSoundTimeStamp > 0 && currentTime - lastSoundTimeStamp >= changeModeTimeIntervalMills)
+      {
+        if (currentMode == ShowMode::clock)
+        {
+          currentMode = ShowMode::temperature;
+        }
+        else
+        {
+          currentMode = ShowMode::clock;
+        }
+      }
+
+      lastSoundTimeStamp = currentTime;
     }
   }
   else
