@@ -14,10 +14,19 @@
  
 MD_Parola myDisplay = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
+// ************* config
 bool useClock = true;
 bool useLm35 = false;
 bool useDht11 = true;
+
 bool useSound = false;
+bool alwaysOn = false;
+bool useSwitch = true;
+
+bool debug = false;
+// ************* end of config
+
+int manualSwitchPin = 5;
 
 // ds3231
 RTC_DS3231 rtc;
@@ -48,11 +57,9 @@ int totalTime = 0;
 int deltaTime = 0;
 int prevTotalTime = 0;
 
-long lastSoundTimeStamp = 0;
+long lastSwitchOnTimeStamp = 0;
 int changeModeTimeIntervalMills = 1000;
 // TODO: 1초 안에 소리 두 번 받으면 모드 변환(시계 - 온도)
-
-bool debug = false;
 
 enum ShowMode
 {
@@ -62,9 +69,14 @@ enum ShowMode
 
 ShowMode currentMode;
 
+String date;
+String time;
+
 void setup() { 
 
   Serial.begin(9600);
+
+  pinMode(manualSwitchPin, INPUT_PULLUP);
 
   myDisplay.begin();
   myDisplay.setIntensity(1);
@@ -90,27 +102,31 @@ void setup() {
   pinMode(soundSensorPin, INPUT);
 
   currentMode = ShowMode::clock;
-}
 
-String date;
-String time;
+  // if (useSound || useSwitch)
+  // {
+  //   showDisplayTimer = showDisplayDurationMillis;
+  //   displayOn = true;
+  // }
+}
 
 void loop() {
 
   totalTime = millis();
   deltaTime = totalTime - prevTotalTime;
 
-  if (useSound)
+  if (useSound || useSwitch)
   {
     if (showDisplayTimer > 0)
     {
       if (debug)
       {
         showDisplayTimer -= deltaTime;
-        // Serial.print("showTimer: ");
-        // Serial.print(showDisplayTimer);
-        // Serial.print(", deltaTime: ");
-        // Serial.println(deltaTime);
+
+        Serial.print("showTimer: ");
+        Serial.print(showDisplayTimer);
+        Serial.print(", deltaTime: ");
+        Serial.println(deltaTime);
       }
 
       if (myDisplay.displayAnimate()) {
@@ -128,9 +144,8 @@ void loop() {
       }
     }
   }
-  else
+  else if (alwaysOn)
   {
-    // always on
     switch(currentMode)
     {
       case ShowMode::clock:
@@ -149,25 +164,11 @@ void loop() {
     if (myDisplay.displayAnimate()) {
       myDisplay.displayReset();
     }
-  }  
+  }
 
   if (useClock)
   {
-    DateTime now = rtc.now();
-    // TODO: show date
-    date = String(now.year()) + "/" +  String(now.month()) + "/" +  String(now.day());
-
-    int hour = now.hour();
-    if (hour >= 12)
-    {
-      time = "P" + String(hour - 12) + ":" +  String(now.minute());
-    }
-    else
-    {
-      time = "A" + String(hour) + ":" +  String(now.minute());
-    }
-
-    time.toCharArray(bufferClock, BufferSize);
+    GetTime();
   }
 
   if (useSound)
@@ -177,7 +178,6 @@ void loop() {
     if (soundLevel > soundThreshold)
     {
       Serial.println(soundLevel);
-      Serial.println("display on!");
 
       showDisplayTimer = showDisplayDurationMillis;
 
@@ -198,9 +198,10 @@ void loop() {
       // myDisplay.displayText(buffer, PA_CENTER, 25, 1000, PA_PRINT);
       myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
       displayOn = true;
+      Serial.println("display on!");
 
       long currentTime =  millis();
-      if (lastSoundTimeStamp > 0 && currentTime - lastSoundTimeStamp >= changeModeTimeIntervalMills)
+      if (lastSwitchOnTimeStamp > 0 && currentTime - lastSwitchOnTimeStamp >= changeModeTimeIntervalMills)
       {
         if (currentMode == ShowMode::clock)
         {
@@ -212,14 +213,112 @@ void loop() {
         }
       }
 
-      lastSoundTimeStamp = currentTime;
+      lastSwitchOnTimeStamp = currentTime;
     }
   }
-  else
+  else if (alwaysOn)
   {
     displayOn = true;
   }
+  else if (useSwitch)
+  {
+    // 사운드 센서가 작동하지 않을 때 수동으로 처리 가능
+    bool manualSwitchPressed = digitalRead(manualSwitchPin) == LOW;
+    // Serial.println(manualSwitchPressed);
+    if (manualSwitchPressed)
+    {
+      showDisplayTimer = showDisplayDurationMillis;
 
+      switch(currentMode)
+      {
+        case ShowMode::clock:
+          // buffer = &bufferClock;
+          memcpy(buffer, bufferClock, BufferSize);
+          break;
+        case ShowMode::temperature:
+          // buffer = &bufferTemp;
+          memcpy(buffer, bufferTemp, BufferSize);
+          break;
+        default:
+          break;
+      }
+
+      // myDisplay.displayText(buffer, PA_CENTER, 25, 1000, PA_PRINT);
+      myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
+      displayOn = true;
+      Serial.println("display on!");
+
+      long currentTime =  millis();
+      if (lastSwitchOnTimeStamp > 0 && currentTime - lastSwitchOnTimeStamp >= changeModeTimeIntervalMills)
+      {
+        if (currentMode == ShowMode::clock)
+        {
+          currentMode = ShowMode::temperature;
+        }
+        else
+        {
+          currentMode = ShowMode::clock;
+        }
+      }
+
+      lastSwitchOnTimeStamp = currentTime;
+    }
+  }
+
+  GetTemperature();
+
+  prevTotalTime = totalTime;
+}
+
+void GetTime()
+{
+  DateTime now = rtc.now();
+    // TODO: show date
+    date = String(now.year()) + "/" +  String(now.month()) + "/" +  String(now.day());
+
+    int hour = now.hour();
+    if (hour >= 12)
+    {
+      if (hour != 12)
+      {
+        // 오후 12시가 0시가 되지 않게 처리.
+        hour = hour - 12;
+      }
+
+      time = "P" + String(hour) + ":" +  String(now.minute());
+    }
+    else
+    {
+      time = "A" + String(hour) + ":" +  String(now.minute());
+    }
+
+    if (debug)
+    {
+      // Serial.print(now.year(), DEC);
+      // Serial.print('/');
+      // Serial.print(now.month(), DEC);
+      // Serial.print('/');
+      // Serial.print(now.day(), DEC);
+      // Serial.print(" (");
+      // Serial.print(daysOfTheWeek[now.dayOfTheWeek()]);
+      // Serial.print(") ");
+      // Serial.print(now.hour(), DEC);
+      // Serial.print(':');
+      // Serial.print(now.minute(), DEC);
+      // Serial.print(':');
+      // Serial.print(now.second(), DEC);
+      // Serial.println();
+
+      // Serial.println(date);
+      // Serial.println(time);
+      // Serial.println("");
+    }
+
+    time.toCharArray(bufferClock, BufferSize);
+}
+
+void GetTemperature()
+{
   if (useLm35)
   {
     reading = analogRead(temperaturePin);
@@ -260,10 +359,6 @@ void loop() {
     String str = String(fTemperature) + "C";
     str.toCharArray(bufferTemp, BufferSize);
   }
-
-  // delay(1000);
-  prevTotalTime = totalTime;
-
 }
 
 
