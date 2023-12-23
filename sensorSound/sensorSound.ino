@@ -3,16 +3,11 @@ int threshold = 500;
 
 void setup() {
   Serial.begin(9600);
-  // pinMode(soundSensorPin, INPUT);
 }
 
 void loop() {
   int level = analogRead(soundSensorPin);
+  Serial.println(level);
 
-  if (level > threshold)
-  {
-    Serial.println(level);
-  }
-
-  delay(100);
+  delay(10);
 }

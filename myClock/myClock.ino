@@ -19,11 +19,12 @@ bool useClock = true;
 bool useLm35 = false;
 bool useDht11 = true;
 
-bool useSound = false;
+bool useSound = true;
 bool alwaysOn = false;
 bool useSwitch = true;
 
 bool debug = true;
+bool debugShowTimer = false;
 // ************* end of config
 
 int manualSwitchPin = 5;
@@ -41,7 +42,7 @@ int temperaturePin = A0;
 DHT11 dht11(2);
 
 int soundSensorPin = A1;
-int soundThreshold = 1000;
+int soundThreshold = 500; // 소리가 클수록 수치가 낮아짐(0~1023)
 
 // display
 const int showDisplayDurationMillis = 5000; // 5 sec
@@ -129,10 +130,10 @@ void loop() {
   {
     if (showDisplayTimer > 0)
     {
-      if (debug)
-      {
-        showDisplayTimer -= deltaTime;
+      showDisplayTimer -= deltaTime;
 
+      if (debugShowTimer)
+      {
         Serial.print("showTimer: ");
         Serial.print(showDisplayTimer);
         Serial.print(", deltaTime: ");
@@ -192,12 +193,12 @@ void loop() {
     // Serial.println(manualSwitchPressed);
 
     int soundLevel = analogRead(soundSensorPin);
-    bool soundSwitchPressed = soundLevel > soundThreshold;
+    bool soundSwitchPressed = soundLevel < soundThreshold;
 
     bool switchOn = useSwitch && manualSwitchPressed;
     bool soundOn = useSound && soundSwitchPressed;
 
-    if (soundOn)
+    if (useSound)
     {
       Serial.println("soundLevel: " + String(soundLevel));
     }
