@@ -23,7 +23,7 @@ bool useSound = false;
 bool alwaysOn = false;
 bool useSwitch = true;
 
-bool debug = false;
+bool debug = true;
 // ************* end of config
 
 int manualSwitchPin = 5;
@@ -41,7 +41,7 @@ int temperaturePin = A0;
 DHT11 dht11(2);
 
 int soundSensorPin = A1;
-int soundThreshold = 500;
+int soundThreshold = 1000;
 
 // display
 const int showDisplayDurationMillis = 5000; // 5 sec
@@ -103,11 +103,21 @@ void setup() {
 
   currentMode = ShowMode::clock;
 
-  // if (useSound || useSwitch)
-  // {
-  //   showDisplayTimer = showDisplayDurationMillis;
-  //   displayOn = true;
-  // }
+  if (useSound || useSwitch)
+  {
+    GetTime();
+
+    memcpy(buffer, bufferClock, BufferSize);
+
+    myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
+
+    if (myDisplay.displayAnimate()) {
+      myDisplay.displayReset();
+    }
+
+    showDisplayTimer = showDisplayDurationMillis;
+    displayOn = true;    
+  }
 }
 
 void loop() {
@@ -171,61 +181,28 @@ void loop() {
     GetTime();
   }
 
-  if (useSound)
-  {
-    int soundLevel = analogRead(soundSensorPin);
-
-    if (soundLevel > soundThreshold)
-    {
-      Serial.println(soundLevel);
-
-      showDisplayTimer = showDisplayDurationMillis;
-
-      switch(currentMode)
-      {
-        case ShowMode::clock:
-          // buffer = &bufferClock;
-          memcpy(buffer, bufferClock, BufferSize);
-          break;
-        case ShowMode::temperature:
-          // buffer = &bufferTemp;
-          memcpy(buffer, bufferTemp, BufferSize);
-          break;
-        default:
-          break;
-      }
-
-      // myDisplay.displayText(buffer, PA_CENTER, 25, 1000, PA_PRINT);
-      myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
-      displayOn = true;
-      Serial.println("display on!");
-
-      long currentTime =  millis();
-      if (lastSwitchOnTimeStamp > 0 && currentTime - lastSwitchOnTimeStamp >= changeModeTimeIntervalMills)
-      {
-        if (currentMode == ShowMode::clock)
-        {
-          currentMode = ShowMode::temperature;
-        }
-        else
-        {
-          currentMode = ShowMode::clock;
-        }
-      }
-
-      lastSwitchOnTimeStamp = currentTime;
-    }
-  }
-  else if (alwaysOn)
+  if (alwaysOn)
   {
     displayOn = true;
   }
-  else if (useSwitch)
+  else if (useSwitch || useSound)
   {
     // 사운드 센서가 작동하지 않을 때 수동으로 처리 가능
     bool manualSwitchPressed = digitalRead(manualSwitchPin) == LOW;
     // Serial.println(manualSwitchPressed);
-    if (manualSwitchPressed)
+
+    int soundLevel = analogRead(soundSensorPin);
+    bool soundSwitchPressed = soundLevel > soundThreshold;
+
+    bool switchOn = useSwitch && manualSwitchPressed;
+    bool soundOn = useSound && soundSwitchPressed;
+
+    if (soundOn)
+    {
+      Serial.println("soundLevel: " + String(soundLevel));
+    }
+
+    if (switchOn || soundOn)
     {
       showDisplayTimer = showDisplayDurationMillis;
 
@@ -246,10 +223,11 @@ void loop() {
       // myDisplay.displayText(buffer, PA_CENTER, 25, 1000, PA_PRINT);
       myDisplay.displayText(buffer, PA_LEFT, 25, 1000, PA_PRINT);
       displayOn = true;
-      Serial.println("display on!");
+      // Serial.println("on!");
 
       long currentTime =  millis();
-      if (lastSwitchOnTimeStamp > 0 && currentTime - lastSwitchOnTimeStamp >= changeModeTimeIntervalMills)
+      // 화면 켜져 있는 동안에 입력 받으면 모드 변환
+      if (showDisplayTimer > 0)
       {
         if (currentMode == ShowMode::clock)
         {

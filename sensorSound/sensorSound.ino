@@ -3,7 +3,7 @@ int threshold = 500;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(soundSensorPin, INPUT);
+  // pinMode(soundSensorPin, INPUT);
 }
 
 void loop() {
